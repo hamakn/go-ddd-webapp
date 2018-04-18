@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hamakn/go_ddd_webapp/src/app/domain/user"
+	"github.com/hamakn/go_ddd_webapp/src/app/infrastructure/concurrency"
 	appDatastore "github.com/hamakn/go_ddd_webapp/src/app/infrastructure/datastore"
 	"google.golang.org/appengine/datastore"
 )
@@ -58,12 +59,19 @@ func updateUserScreenName(ctx context.Context, u *user.User, oldScreenName strin
 			return user.ErrScreenNameCannotTake
 		}
 
-		err := deleteUserScreenName(tctx, oldScreenName, u.ID)
-		if err != nil {
-			return err
-		}
-
-		err = takeUserScreenName(tctx, newUserScreenName(u))
+		err := concurrency.ExecAllOrAbortOnError(
+			tctx,
+			[]func() error{
+				func() error {
+					tctx := tctx
+					return deleteUserScreenName(tctx, oldScreenName, u.ID)
+				},
+				func() error {
+					tctx := tctx
+					return takeUserScreenName(tctx, newUserScreenName(u))
+				},
+			},
+		)
 		if err != nil {
 			return err
 		}

@@ -29,14 +29,6 @@ func TestCreate(t *testing.T) {
 		err        error
 	}{
 		{
-			// taken email and screen name
-			"foo@hamakn.test",
-			"foo",
-			24,
-			true,
-			user.ErrEmailCannotTake,
-		},
-		{
 			// taken email (other case)
 			"FOO@hamakn.test",
 			"new_name",

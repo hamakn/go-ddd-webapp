@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hamakn/go_ddd_webapp/src/app/domain/user"
+	"github.com/hamakn/go_ddd_webapp/src/app/infrastructure/concurrency"
 	appDatastore "github.com/hamakn/go_ddd_webapp/src/app/infrastructure/datastore"
 	"google.golang.org/appengine/datastore"
 )
@@ -58,12 +59,19 @@ func updateUserEmail(ctx context.Context, u *user.User, oldEmail string) error {
 			return user.ErrEmailCannotTake
 		}
 
-		err := deleteUserEmail(tctx, oldEmail, u.ID)
-		if err != nil {
-			return err
-		}
-
-		err = takeUserEmail(tctx, newUserEmail(u))
+		err := concurrency.ExecAllOrAbortOnError(
+			tctx,
+			[]func() error{
+				func() error {
+					tctx := tctx
+					return deleteUserEmail(tctx, oldEmail, u.ID)
+				},
+				func() error {
+					tctx := tctx
+					return takeUserEmail(tctx, newUserEmail(u))
+				},
+			},
+		)
 		if err != nil {
 			return err
 		}
